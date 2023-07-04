@@ -1,0 +1,53 @@
+CREATE TABLE IF NOT EXISTS Genres (
+    ID INTEGER PRIMARY KEY,
+    Genre_name VARCHAR(255)
+);
+
+CREATE TABLE IF NOT EXISTS Singers (
+    ID INTEGER PRIMARY KEY,
+    Singer_name VARCHAR(255)
+);
+
+CREATE TABLE IF NOT EXISTS Albums (
+    ID INTEGER PRIMARY KEY,
+    Album_name VARCHAR(255),
+    Year_of_issue INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS Tracks (
+    ID INTEGER PRIMARY KEY,
+    Album_ID INTEGER,
+    Track_name VARCHAR(255),
+    Duration INTEGER,
+    FOREIGN KEY (Album_ID) REFERENCES Albums(ID)
+);
+
+CREATE TABLE IF NOT EXISTS Collections (
+    ID INTEGER PRIMARY KEY,
+    Collection_name VARCHAR(255),
+    Year_of_issue INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS Singers_Genres (
+    ID INTEGER PRIMARY KEY,
+    Singer_ID INTEGER,
+    Genre_ID INTEGER,
+    FOREIGN KEY (Singer_ID) REFERENCES Singers(ID),
+    FOREIGN KEY (Genre_ID) REFERENCES Genres(ID)
+);
+
+CREATE TABLE IF NOT EXISTS Singers_Albums (
+    ID INTEGER PRIMARY KEY,
+    Singer_ID INTEGER,
+    Album_ID INTEGER,
+    FOREIGN KEY (Singer_ID) REFERENCES Singers(ID),
+    FOREIGN KEY (Album_ID) REFERENCES Albums(ID)
+);
+
+CREATE TABLE IF NOT EXISTS Tracks_Collections (
+    ID INTEGER PRIMARY KEY,
+    Track_ID INTEGER,
+    Collection_ID INTEGER,
+    FOREIGN KEY (Track_ID) REFERENCES Tracks(ID),
+    FOREIGN KEY (Collection_ID) REFERENCES Collections(ID)
+);
