@@ -1,0 +1,114 @@
+import vk_api
+from vk_api.longpoll import VkLongPoll, VkEventType
+from vk_api.utils import get_random_id
+import requests
+import time
+
+YOUR_VK_API_ACCESS_TOKEN = 'ВАШ_ТОКЕН_ДОСТУПА_VK_API'
+YOUR_VK_BOT_COMMUNITY_TOKEN = 'ВАШ_ТОКЕН_ДОСТУПА_BOT_COMMUNITY_VK'
+GROUP_ID = 'ID_ВАШЕЙ_ГРУППЫ_VK'
+
+vk_session = vk_api.VkApi(token=YOUR_VK_BOT_COMMUNITY_TOKEN)
+vk = vk_session.get_api()
+
+def vk_authorize(token):
+    vk_session = vk_api.VkApi(token=token)
+    vk = vk_session.get_api()
+    return vk_session, vk
+
+def get_user_params(user_id):
+    params = {}
+    send_message(user_id, 'Давайте начнем поиск анкет. Пожалуйста, укажите свой возраст:')
+    age = wait_for_user_response(user_id)
+    params['age'] = int(age)
+
+    send_message(user_id, 'Отлично! Теперь укажите свой пол (укажите 1 - для мужского пола, 2 - для женского):')
+    sex = wait_for_user_response(user_id)
+    params['sex'] = int(sex)
+
+    send_message(user_id, 'Хорошо! Укажите ваш город:')
+    city = wait_for_user_response(user_id)
+    params['city'] = city
+
+    send_message(user_id, 'Последний вопрос! Укажите ваше семейное положение:')
+    send_message(user_id, 'Возможные варианты:\n1 - не женат/не замужем,\n2 - встречается,\n3 - помолвлен(а),\n4 - женат/замужем,\n5 - всё сложно,\n6 - в активном поиске,\n7 - влюблен(а),\n8 - в гражданском браке')
+    relation = wait_for_user_response(user_id)
+    params['relation'] = int(relation)
+
+    return params
+
+def wait_for_user_response(user_id):
+    for event in longpoll.listen():
+        if event.type == VkEventType.MESSAGE_NEW and event.to_me and event.user_id == user_id:
+            return event.text
+
+def search_profiles(params):
+    # Получение параметров для поиска
+    age_from = params['age'] - 3
+    age_to = params['age'] + 3
+    sex = 1 if params['sex'] == 2 else 2
+    city = params['city']
+    relation = params['relation']
+
+    url = f'https://api.vk.com/method/users.search'
+    params = {
+        'access_token': YOUR_VK_API_ACCESS_TOKEN,
+        'count': 5,
+        'sex': sex,
+        'age_from': age_from,
+        'age_to': age_to,
+        'city': city,
+        'status': relation,
+        'fields': 'id,first_name,last_name,city,photo_max_orig',
+        'v': '5.131'
+    }
+
+    response = requests.get(url, params=params).json()
+    profiles = response['response']['items']
+
+    if profiles:
+        send_message(params['user_id'], 'Найдены следующие анкеты, соответствующие вашим критериям:')
+        for profile in profiles:
+            name = f"{profile['first_name']} {profile['last_name']}"
+            city = profile.get('city', {}).get('title', 'Не указан')
+            photo_url = profile.get('photo_max_orig', '')
+            send_message(params['user_id'], f'Имя: {name}, Город: {city}')
+            send_message(params['user_id'], f'Фото: {photo_url}')
+            time.sleep(1)  # Задержка для предотвращения блокировки VK API
+    else:
+        send_message(params['user_id'], 'К сожалению, по вашим критериям анкеты не найдены.')
+
+def send_message(user_id, message):
+    vk.messages.send(
+        user_id=user_id,
+        message=message,
+        random_id=get_random_id()
+    )
+
+def process_user_event(event):
+    if event.type == VkEventType.MESSAGE_NEW and event.to_me:
+        user_id = event.user_id
+        text = event.text.lower()
+        if text == 'поиск':
+            send_message(user_id, 'Хорошо! Для того, чтобы помочь вам найти подходящие анкеты, мне нужно задать несколько вопросов.')
+            params = get_user_params(user_id)
+            params['user_id'] = user_id
+            search_profiles(params)
+            send_message(user_id, 'Поиск завершен! Если хотите продолжить, напишите "поиск" еще раз.')
+        elif text == 'привет':
+            send_message(user_id, 'Привет! Я чат-бот VKinder. Как я могу помочь?')
+        elif text == 'пока':
+            send_message(user_id, 'До свидания! Если захотите продолжить поиск, напишите "поиск".')
+        else:
+            send_message(user_id, 'Я не понимаю команды. Напиши "привет", чтобы начать.')
+
+if __name__ == '__main__':
+    vk_session, vk = vk_authorize(YOUR_VK_API_ACCESS_TOKEN)
+    longpoll = VkLongPoll(vk_session)
+
+    print("Чат-бот VKinder запущен.")
+    for event in longpoll.listen():
+        try:
+            process_user_event(event)
+        except Exception as e:
+            print("Ошибка обработки события:", e)
